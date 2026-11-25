@@ -1,0 +1,12 @@
+---
+- name: Configure Backend tier
+  hosts: backend
+  become: yes
+  roles:
+    - backend
+
+- name: Configure Frontend tier
+  hosts: frontend
+  become: yes
+  roles:
+    - frontend

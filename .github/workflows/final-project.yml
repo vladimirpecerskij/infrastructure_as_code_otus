@@ -1,0 +1,126 @@
+name: Final Project - Multi-Env CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'final_project/**'
+      - '.github/workflows/final-project.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Целевая среда (stage / prod)'
+        required: true
+        default: 'stage'
+        type: choice
+        options:
+          - stage
+          - prod
+      action:
+        description: 'Действие с инфраструктурой'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+  YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+  TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+  test-iac:
+    name: Test Terraform & Lint Ansible
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+
+      - name: Setup Dummy SSH Key & YC Creds for Test
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/yc.pub
+          echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" | base64 -d > /tmp/yc-key.json
+          echo "YC_SERVICE_ACCOUNT_KEY_FILE=/tmp/yc-key.json" >> $GITHUB_ENV
+
+      - name: Run Terraform Native Tests
+        working-directory: final_project
+        run: |
+          terraform init -backend=false
+          terraform test
+
+      - name: Lint Ansible Playbook
+        working-directory: final_project/ansible
+        run: |
+          pip install ansible
+          echo -e "[frontend]\n127.0.0.1\n[backend]\n127.0.0.1" > inventory.ini
+          ansible-playbook site.yml --syntax-check
+
+  deploy-environment:
+    name: Manage Environment (${{ github.event.inputs.environment || 'stage' }})
+    needs: test-iac
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: final_project/environments/${{ github.event.inputs.environment || 'stage' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Credentials & SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PUBLIC_KEY }}" > ~/.ssh/yc.pub
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/yc
+          chmod 600 ~/.ssh/yc
+          echo "${{ secrets.YC_SERVICE_ACCOUNT_KEY }}" | base64 -d > /tmp/yc-key.json
+          echo "YC_SERVICE_ACCOUNT_KEY_FILE=/tmp/yc-key.json" >> $GITHUB_ENV
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+
+      - name: Terraform Init & Plan
+        run: |
+          terraform init
+          terraform plan
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        run: |
+          terraform apply -auto-approve
+          terraform output -json > ../../tf_outputs.json
+
+      - name: Configure Tiers with Ansible & Smoke Test
+        if: github.event.inputs.action == 'apply'
+        working-directory: final_project/ansible
+        run: |
+          pip install ansible
+          python3 -c '
+          import json
+          d = json.load(open("../tf_outputs.json"))
+          fe_ip = d["frontend_public_ip"]["value"]
+          be_ip = d["backend_public_ip"]["value"]
+          be_priv = d["backend_private_ip"]["value"]
+          db = d["db_fqdn"]["value"]
+          with open("inventory.ini", "w") as f:
+              f.write(f"[frontend]\nfe-1 ansible_host={fe_ip} backend_private_ip={be_priv}\n")
+              f.write(f"[backend]\nbe-1 ansible_host={be_ip} db_host={db}\n")
+          '
+          sleep 15
+          ansible-playbook site.yml
+          FE_IP=$(python3 -c 'import json; print(json.load(open("../tf_outputs.json"))["frontend_public_ip"]["value"])')
+          echo "=== SMOKE TEST FRONTEND -> BACKEND -> DB ==="
+          curl -f http://$FE_IP
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve
