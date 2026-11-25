@@ -1,5 +1,6 @@
-site_name: Infrastructure as Code Documentation
+site_name: Yandex Cloud IaC Documentation
 theme:
   name: material
 nav:
   - Главная: index.md
+  - Архитектура WordPress: architecture.md
