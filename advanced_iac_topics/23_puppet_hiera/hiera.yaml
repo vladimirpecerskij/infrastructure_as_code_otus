@@ -4,7 +4,7 @@ defaults:
   datadir: data
   data_hash: yaml_data
 hierarchy:
-  - name: "Per-environment data"
+  - name: "Environment specific data"
     path: "env/%{facts.environment}.yaml"
-  - name: "Common data"
+  - name: "Common default data"
     path: "common.yaml"
