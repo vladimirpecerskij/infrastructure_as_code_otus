@@ -1,0 +1,34 @@
+resources:
+  - name: infra-repo
+    type: git
+    source:
+      uri: https://github.com
+      branch: main
+
+jobs:
+  - name: terraform-plan
+    plan:
+      - get: infra-repo
+        trigger: true
+      - task: run-plan
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: hashicorp/terraform
+              tag: "1.10.0"
+          inputs:
+            - name: infra-repo
+          params:
+            YC_TOKEN: ((yc_token))
+            YC_CLOUD_ID: ((yc_cloud_id))
+            YC_FOLDER_ID: ((yc_folder_id))
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                cd infra-repo/lab_6_gha/terraform
+                terraform init -backend=false
+                terraform validate

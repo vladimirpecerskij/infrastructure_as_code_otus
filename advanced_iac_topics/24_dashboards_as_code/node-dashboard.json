@@ -1,0 +1,12 @@
+{
+  "title": "Web Cluster Overview (IaC)",
+  "uid": "web-cluster-iac",
+  "schemaVersion": 38,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Active Nginx Nodes",
+      "targets": [{ "expr": "up{job='nginx'}" }]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+site_name: Infrastructure as Code Documentation
+theme:
+  name: material
+nav:
+  - Главная: index.md

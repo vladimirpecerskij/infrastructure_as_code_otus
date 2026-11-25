@@ -1,0 +1,4 @@
+---
+nginx::worker_processes: 2
+nginx::listen_port: 80
+app::db_host: "rc1a-mysql.mdb.yandexcloud.net"
