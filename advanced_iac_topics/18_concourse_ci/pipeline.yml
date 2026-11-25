@@ -1,16 +1,17 @@
 resources:
   - name: infra-repo
     type: git
+    icon: github
     source:
       uri: https://github.com
       branch: main
 
 jobs:
-  - name: terraform-plan
+  - name: terraform-validate-and-plan
     plan:
       - get: infra-repo
         trigger: true
-      - task: run-plan
+      - task: check-terraform
         config:
           platform: linux
           image_resource:
@@ -21,7 +22,6 @@ jobs:
           inputs:
             - name: infra-repo
           params:
-            YC_TOKEN: ((yc_token))
             YC_CLOUD_ID: ((yc_cloud_id))
             YC_FOLDER_ID: ((yc_folder_id))
           run:
@@ -30,5 +30,35 @@ jobs:
               - -exc
               - |
                 cd infra-repo/lab_6_gha/terraform
+                terraform fmt -check || true
                 terraform init -backend=false
                 terraform validate
+
+  - name: terraform-apply
+    plan:
+      - get: infra-repo
+        passed: [terraform-validate-and-plan]
+      - task: apply-infra
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: hashicorp/terraform
+              tag: "1.10.0"
+          inputs:
+            - name: infra-repo
+          params:
+            YC_CLOUD_ID: ((yc_cloud_id))
+            YC_FOLDER_ID: ((yc_folder_id))
+            YC_SERVICE_ACCOUNT_KEY: ((yc_sa_key))
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                echo "$YC_SERVICE_ACCOUNT_KEY" > /tmp/key.json
+                export YC_SERVICE_ACCOUNT_KEY_FILE=/tmp/key.json
+                cd infra-repo/lab_6_gha/terraform
+                terraform init
+                terraform apply -auto-approve
