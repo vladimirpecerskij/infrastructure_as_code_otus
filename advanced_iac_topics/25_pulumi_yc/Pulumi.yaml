@@ -1,3 +1,6 @@
-name: yandex-cloud-iac
-runtime: python
-description: Описание инфраструктуры Yandex Cloud на Python с помощью Pulumi
+name: yandex-cloud-wp-pulumi
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Описание инфраструктуры Yandex Cloud на языке Python с помощью Pulumi
