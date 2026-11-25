@@ -1,0 +1,27 @@
+{
+  "title": "WordPress Cluster Monitoring (Dashboards as Code)",
+  "uid": "wp-cluster-dac",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active Web Nodes",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "count(up{job='node_exporter'} == 1)", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "CPU Usage (%)",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)", "refId": "A" }
+      ]
+    }
+  ]
+}
