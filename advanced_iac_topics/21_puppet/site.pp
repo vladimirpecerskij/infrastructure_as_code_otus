@@ -1,17 +1,20 @@
 node default {
-  package { 'nginx':
-    ensure => installed,
+  # Создаём директорию приложения
+  file { '/opt/iac-app':
+    ensure => directory,
+    mode   => '0755',
   }
 
-  file { '/var/www/html/index.html':
+  # Декларативно описываем конфигурационный файл с зависимостью от директории
+  file { '/opt/iac-app/app.conf':
     ensure  => file,
-    content => "<h1>Managed by Puppet IaC</h1>\n",
-    require => Package['nginx'],
+    mode    => '0644',
+    content => "app_name=wordpress\nenvironment=production\nmanaged_by=Puppet\n",
+    require => File['/opt/iac-app'],
   }
 
-  service { 'nginx':
-    ensure  => running,
-    enable  => true,
-    require => File['/var/www/html/index.html'],
+  # Выводим информационное сообщение при применении каталога
+  notify { 'App configuration applied successfully via Puppet!':
+    require => File['/opt/iac-app/app.conf'],
   }
 }
