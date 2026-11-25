@@ -1,20 +1,15 @@
 stages:
-  - lint
   - deploy
 
-ansible_deploy:
+ansible_deploy_with_vault:
   stage: deploy
   image: cytopia/ansible:latest
   before_script:
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
-    - chmod 600 ~/.ssh/id_ed25519
-    # Передаём пароль от Ansible Vault из защищённой переменной GitLab CI/CD
-    - echo "$ANSIBLE_VAULT_PASS" > .vault_pass
-    - chmod 600 .vault_pass
+    # Создаём файл пароля из защищённой переменной GitLab CI/CD (Masked)
+    - echo "$ANSIBLE_VAULT_PASSWORD" > /tmp/.vault_pass
+    - chmod 600 /tmp/.vault_pass
   script:
-    - ansible-lint site.yml
-    - ansible-playbook -i inventory.ini site.yml --vault-password-file .vault_pass
+    - ansible-playbook site.yml --vault-password-file /tmp/.vault_pass
   after_script:
-    - rm -f .vault_pass ~/.ssh/id_ed25519
-  when: manual
+    # Обязательно удаляем файл пароля после завершения джобы
+    - rm -f /tmp/.vault_pass

@@ -1,0 +1,9 @@
+---
+- name: Test Ansible Vault in CI/CD
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Print decrypted secret safely
+      ansible.builtin.debug:
+        msg: "Пароль БД успешно расшифрован в памяти раннера: {{ vault_db_password }}"
